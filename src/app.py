@@ -1,7 +1,6 @@
 # 必要なモジュールのインポート
 from flask import Flask, render_template, request, redirect
 import io
-from PIL import Image
 import base64
 import cv2
 import numpy as np
@@ -12,12 +11,12 @@ app = Flask(__name__)
 # アップロードされる拡張子の制限
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'gif', 'jpeg'])
 
-#　拡張子が適切かどうかをチェック
-def allwed_file(filename):
+# 拡張子が適切かどうかをチェック
+def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # URL にアクセスがあった場合の挙動の設定
-@app.route('/', methods = ['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def predicts():
     # リクエストがポストかどうかの判別
     if request.method == 'POST':
@@ -27,21 +26,10 @@ def predicts():
         # データの取り出し
         file = request.files['filename']
         # ファイルのチェック
-        if file and allwed_file(file.filename):
-
-            #　画像ファイルに対する処理
-            #　画像書き込み用バッファを確保
-            buf = io.BytesIO()
-            image = Image.open(file).convert('RGB')
-            #　画像データをバッファに書き込む
-            image.save(buf, 'png')
-            #　バイナリデータを base64 でエンコードして utf-8 でデコード
-            base64_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-            #　HTML 側の src の記述に合わせるために付帯情報付与する
-            base64_data = 'data:image/png;base64,{}'.format(base64_str)
+        if file and allowed_file(file.filename):
 
             # 画像処理を実行
-            image = cv2.imdecode(np.frombuffer(buf.getvalue(), np.uint8), -1)  # OpenCV形式に変換
+            image = cv2.imdecode(np.frombuffer(file.read(), np.uint8), -1)  # OpenCV形式に変換
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # グレースケール変換
             edges = cv2.Canny(gray, 50, 150, apertureSize=3)  # Cannyエッジ検出
 
@@ -64,7 +52,7 @@ def predicts():
             _, buffer = cv2.imencode('.png', image)
             base64_str = base64.b64encode(buffer).decode('utf-8')
             base64_data = 'data:image/png;base64,{}'.format(base64_str)
-                
+
             # 描画した画像を保存
             cv2.imwrite('static/result_image.png', image)
 
@@ -72,7 +60,7 @@ def predicts():
             return render_template('result.html', message=message_, image=base64_data)
         return redirect(request.url)
 
-    # GET 　メソッドの定義
+    # GET メソッドの定義
     elif request.method == 'GET':
         return render_template('index.html')
 
